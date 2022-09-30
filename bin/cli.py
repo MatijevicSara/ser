@@ -1,4 +1,5 @@
 import typer
+from ser.infer import myfun
 
 main = typer.Typer()
 
@@ -10,4 +11,4 @@ def train():
 
 @main.command()
 def infer():
-    pass
+    myfun()
