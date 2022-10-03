@@ -8,8 +8,13 @@ import git
 from ser.train import train as run_train
 from ser.constants import RESULTS_DIR
 from ser.data import train_dataloader, val_dataloader, test_dataloader
-from ser.params import Params, save_params
+from ser.params import Params, save_params, load_params
 from ser.transforms import transforms, normalize
+from ser.inference import generate_ascii_art
+from ser.inference import infer1
+from ser.inference import pixel_to_char
+from ser.inference import setup_inference
+
 
 main = typer.Typer()
 
@@ -59,47 +64,26 @@ def train(
 
 
 @main.command()
-def infer():
-    run_path = Path("./path/to/one/of/your/training/runs")
-    label = 6
+def infer(
+    label: int = typer.Option(
+        6, "-l",  "--label", help = "Specify which label "
+    ),
+    run_path: Path = typer.Option(
+        ..., "-r", "--run_path", help = "Specify the path to the experiment"
+    ),
+):
 
     # TODO load the parameters from the run_path so we can print them out!
+    params = load_params(run_path)
+
 
     # select image to run inference for
-    dataloader = test_dataloader(1, transforms(normalize))
-    images, labels = next(iter(dataloader))
-    while labels[0].item() != label:
-        images, labels = next(iter(dataloader))
+    images, labels = setup_inference(test_dataloader, label)
+
 
     # load the model
     model = torch.load(run_path / "model.pt")
 
     # run inference
-    model.eval()
-    output = model(images)
-    pred = output.argmax(dim=1, keepdim=True)[0].item()
-    certainty = max(list(torch.exp(output)[0]))
-    pixels = images[0][0]
-    print(generate_ascii_art(pixels))
-    print(f"This is a {pred}")
+    infer1(model,images, params, label)
 
-
-def generate_ascii_art(pixels):
-    ascii_art = []
-    for row in pixels:
-        line = []
-        for pixel in row:
-            line.append(pixel_to_char(pixel))
-        ascii_art.append("".join(line))
-    return "\n".join(ascii_art)
-
-
-def pixel_to_char(pixel):
-    if pixel > 0.99:
-        return "O"
-    elif pixel > 0.9:
-        return "o"
-    elif pixel > 0:
-        return "."
-    else:
-        return " "
